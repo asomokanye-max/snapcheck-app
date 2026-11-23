@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snap Check</title>
+<meta name="theme-color" content="#1B6B5A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--blue:#1B6B5A;--bg:#f5f7fa;--line:#dde3ea;--mut:#5b6575;--red:#b3261e;--redbg:#fbe9e7;--amb:#8a5a00;--ambbg:#fff4dc;--grn:#1e7a46;--grnbg:#e6f4ec}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:#1d2430;line-height:1.45}
+header{background:var(--blue);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+header h1{margin:0;font-size:1.15rem}
+header .who{font-size:.8rem}
+header a{color:#fff}
+main{max-width:760px;margin:0 auto;padding:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.hidden{display:none!important}
+h2{font-size:1.05rem;margin:2px 0 10px}
+label{font-size:.8rem;color:var(--mut);display:block;margin-bottom:3px}
+input,select{font-size:1rem;padding:9px 10px;border:1px solid #b9c3cf;border-radius:8px;background:#fff;font-family:inherit;width:100%}
+input[type=checkbox]{width:auto}
+button{font-size:.95rem;padding:10px 14px;border-radius:8px;border:0;background:var(--blue);color:#fff;cursor:pointer;font-weight:600}
+button.sec{background:#e3f0ec;color:var(--blue)}
+button:disabled{opacity:.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.hint{font-size:.82rem;color:var(--mut)}
+.err{color:var(--red);font-weight:600}.good{color:var(--grn);font-weight:600}
+.steps{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.steps span{font-size:.75rem;padding:4px 9px;border-radius:999px;background:#e3f0ec;color:var(--blue)}
+.steps span.on{background:var(--blue);color:#fff}
+table.g{width:100%;border-collapse:collapse;font-size:.9rem}
+table.g th,table.g td{border:1px solid var(--line);padding:4px;text-align:left;vertical-align:middle}
+table.g th{background:#f0f3f7;font-weight:600;font-size:.8rem}
+table.g input{padding:7px;text-align:center;font-size:1rem}
+input.low{background:var(--ambbg);border-color:#d9a400}
+input.bad{background:var(--redbg);border-color:var(--red)}
+input.chg{outline:2px solid #2E75B6}
+.flag{border-left:4px solid var(--red);background:var(--redbg);padding:8px 10px;border-radius:6px;margin-bottom:6px;font-size:.9rem}
+.flag.warn{border-color:#d9a400;background:var(--ambbg)}
+.ok{border-left:4px solid var(--grn);background:var(--grnbg);padding:8px 10px;border-radius:6px;font-size:.9rem}
+img.ph{max-width:100%;border-radius:8px;border:1px solid var(--line)}
+footer{text-align:center;font-size:.72rem;color:var(--mut);padding:10px 14px 24px}
+</style>
+</head>
+<body>
+<header><div><h1>Snap Check</h1><div class="who">Check the monthly summary form before it leaves the facility · Pilot</div></div><div class="who" id="who"></div></header>
+<main>
+
+<div id="vLogin" class="card hidden">
+  <h2>Sign in</h2>
+  <div class="btns" style="margin-top:0"><button id="tIn">Log in</button><button id="tUp" class="sec">Create account</button></div>
+  <div style="height:10px"></div>
+  <div id="nameBox" class="hidden"><label for="nm">Full name</label><input id="nm" autocomplete="name"><div style="height:8px"></div></div>
+  <label for="em">Email</label><input id="em" type="email" autocomplete="username">
+  <div style="height:8px"></div>
+  <label for="pw">Password (at least 8 characters)</label><input id="pw" type="password" autocomplete="current-password">
+  <div class="btns"><button id="goIn">Log in</button></div>
+  <div id="inMsg" class="hint"></div>
+  <p class="hint">New accounts are approved by the administrator, who sets your role, LGA and facility. Forgot your password? Ask the administrator.</p>
+</div>
+<div id="vPending" class="card hidden"><h2>Account waiting for approval</h2><p>The administrator will give you access to Snap Check and set your LGA and facility; then log out and in again.</p></div>
+
+<div id="vApp" class="hidden">
+  <div class="steps"><span data-s="1" class="on">1 Form details</span><span data-s="2">2 Confirm reading</span><span data-s="3">3 Fix problems</span><span data-s="4">4 Saved</span></div>
+
+  <!-- step 1 -->
+  <section id="s1" class="card">
+    <h2>New form</h2>
+    <div class="row">
+      <div><label for="lga">LGA</label><select id="lga"></select></div>
+      <div><label for="mon">Reporting month</label><input id="mon" type="month"></div>
+    </div>
+    <div style="height:8px"></div>
+    <label for="fac">Facility</label><input id="fac" placeholder="e.g. TEST FACILITY 01">
+    <div style="height:8px"></div>
+    <label for="tpl">Form</label><select id="tpl"><option value="practice_v1">Snap Check practice sheet (test)</option></select>
+    <div style="margin-top:8px"><label style="display:inline"><input type="checkbox" id="synth" checked> This is test data (invented numbers)</label></div>
+    <div class="btns">
+      <label class="hidden" for="photo">Photo</label>
+      <input id="photo" type="file" accept="image/*" capture="environment" class="hidden">
+      <button id="takePhoto">Take photo of the form</button>
+      <button id="manual" class="sec">Type the numbers instead</button>
+    </div>
+    <p class="hint">Photograph the whole page flat, in good light, with all edges visible. Staff names and signatures are not needed; fold or cover them if you can. The photo is read by the AI service and is not stored.</p>
+    <div id="s1Msg" class="hint"></div>
+  </section>
+
+  <!-- step 2/3 -->
+  <section id="s2" class="card hidden">
+    <h2 id="s2Title">Confirm the reading</h2>
+    <p class="hint" id="s2Hint"></p>
+    <img id="ph" class="ph hidden" alt="Photo of the form">
+    <div id="aiNote" class="hint" style="margin:6px 0"></div>
+    <div id="grid"></div>
+    <div id="flags" style="margin-top:10px"></div>
+    <div class="btns" id="s2Btns"></div>
+    <div id="s2Msg" class="hint"></div>
+  </section>
+
+  <!-- step 4 -->
+  <section id="s4" class="card hidden">
+    <h2>Form checked and saved</h2>
+    <div id="sum"></div>
+    <div class="btns"><button id="again">Check another form</button></div>
+  </section>
+
+  <section class="card"><h2>Forms checked</h2><div id="list" class="hint">…</div></section>
+</div>
+</main>
+<footer>Snap Check pilot v0.1 · Institute of Public Health, Obafemi Awolowo University, Ile-Ife · Reads counts only; photos are not stored</footer>
+
+<script>
+const SUPABASE_URL="https://xzwjhbepttecghwvoogz.supabase.co";
+const SUPABASE_KEY="sb_publishable_eVkgrZ3ZM5XqWx-uLfR0rg_fluTH8Gi";
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ================= form templates =================
+const TEMPLATES={practice_v1:{
+  name:"Snap Check practice sheet",
+  tableA:{rows:[["A1","Under 5 years"],["A2","5 years and above"],["A3","All ages (A1 + A2)"]],cols:[["M","Male"],["F","Female"],["T","Total"]]},
+  listB:[["B1","ANC first visits"],["B2","ANC 4th visits"],["B3","Deliveries in facility"],["B4","Penta 1 doses given"],["B5","Penta 3 doses given"],["B6","Persons tested for malaria (RDT or microscopy)"],["B7","Confirmed malaria cases"],["B8","Family planning new acceptors"]],
+  rules(v){
+    const out=[],n=k=>v[k];
+    Object.keys(v).forEach(k=>{if(v[k]===null)out.push({rule:"blank",items:[k],severity:"error",message:`${label(k)} is blank. Write 0 if there were none.`});});
+    ["A1","A2","A3"].forEach(r=>{const m=n(r+"M"),f=n(r+"F"),t=n(r+"T");if(m!==null&&f!==null&&t!==null&&m+f!==t)out.push({rule:"row_total",items:[r+"M",r+"F",r+"T"],severity:"error",message:`${r}: Male ${m} + Female ${f} = ${m+f}, but Total is written as ${t}.`});});
+    ["M","F","T"].forEach(c=>{const a=n("A1"+c),b=n("A2"+c),s=n("A3"+c);const nm={M:"Male",F:"Female",T:"Total"}[c];if(a!==null&&b!==null&&s!==null&&a+b!==s)out.push({rule:"col_total",items:["A1"+c,"A2"+c,"A3"+c],severity:"error",message:`${nm} column: A1 ${a} + A2 ${b} = ${a+b}, but All ages (A3) is written as ${s}.`});});
+    if(n("B7")!==null&&n("B6")!==null&&n("B7")>n("B6"))out.push({rule:"malaria_confirmed_gt_tested",items:["B6","B7"],severity:"error",message:`Confirmed malaria (${n("B7")}) cannot be more than persons tested (${n("B6")}).`});
+    if(n("B2")!==null&&n("B1")!==null&&n("B2")>n("B1"))out.push({rule:"anc4_gt_anc1",items:["B1","B2"],severity:"warn",message:`ANC 4th visits (${n("B2")}) are more than ANC first visits (${n("B1")}). Possible in a month, but unusual: check the ANC register.`});
+    if(n("B5")!==null&&n("B4")!==null&&n("B5")>n("B4"))out.push({rule:"penta3_gt_penta1",items:["B4","B5"],severity:"warn",message:`Penta 3 (${n("B5")}) is more than Penta 1 (${n("B4")}). Possible in a month, but unusual: check the immunisation register.`});
+    return out;
+  }}};
+let T=TEMPLATES.practice_v1;
+const allItems=()=>[...T.tableA.rows.flatMap(([r])=>T.tableA.cols.map(([c])=>r+c)),...T.listB.map(x=>x[0])];
+function label(k){const b=T.listB.find(x=>x[0]===k);if(b)return k+" "+b[1];const r=T.tableA.rows.find(x=>k.startsWith(x[0])),c=T.tableA.cols.find(x=>k.endsWith(x[0]));return r&&c?`${r[0]} ${r[1]}, ${c[1]}`:k;}
+const aiItems=()=>allItems().map(k=>{const b=T.listB.find(x=>x[0]===k);if(b)return{code:k,label:`Section B, row ${k} "${b[1]}", Number column`};const r=T.tableA.rows.find(x=>k.startsWith(x[0])),c=T.tableA.cols.find(x=>k.endsWith(x[0]));return{code:k,label:`Section A table, row ${r[0]} "${r[1]}", column "${c[1]}"`};});
+
+// ================= state =================
+let ME=null,FORM=null,STAGE=null;
+// FORM={lga,facility,period,template,mode,model,synthetic,ai:{},conf:{},paper:{},final:{},first:[],final_flags:[],started}
+
+// ================= auth =================
+let SIGNUP=false;
+$("tIn").onclick=()=>{SIGNUP=false;$("tIn").className="";$("tUp").className="sec";$("nameBox").classList.add("hidden");$("goIn").textContent="Log in";};
+$("tUp").onclick=()=>{SIGNUP=true;$("tUp").className="";$("tIn").className="sec";$("nameBox").classList.remove("hidden");$("goIn").textContent="Create account";};
+$("goIn").onclick=async()=>{const email=$("em").value.trim(),password=$("pw").value;
+  if(SIGNUP){if(!$("nm").value.trim()||password.length<8){$("inMsg").innerHTML='<span class="err">Enter your full name and a password of at least 8 characters.</span>';return;}
+    const r=await db.auth.signUp({email,password,options:{data:{full_name:$("nm").value.trim()},emailRedirectTo:location.origin+location.pathname}});
+    if(r.error){$("inMsg").innerHTML='<span class="err">'+esc(r.error.message)+'</span>';return;}
+    if(!r.data.session){$("inMsg").innerHTML='<span class="good">Account created. Check your email to confirm it, then log in. The administrator will then give you access.</span>';return;}
+    start();return;}
+  const {error}=await db.auth.signInWithPassword({email,password});
+  if(error){$("inMsg").innerHTML='<span class="err">'+esc(error.message)+'</span>';return;}start();};
+async function start(){
+  const {data:{session}}=await db.auth.getSession();
+  ["vLogin","vPending","vApp"].forEach(v=>$(v).classList.add("hidden"));
+  if(!session){$("vLogin").classList.remove("hidden");return;}
+  const {data:p}=await db.from("profiles").select("*").eq("user_id",session.user.id).maybeSingle();
+  ME=p||{role:"pending"};
+  $("who").innerHTML=esc(ME.full_name||ME.email||"")+" · "+esc(ME.role)+' · <a href="#" id="lo">Log out</a>';
+  $("lo").onclick=async e=>{e.preventDefault();await db.auth.signOut();location.reload();};
+  if(!["facility","officer","state","admin"].includes(ME.role)){$("vPending").classList.remove("hidden");return;}
+  $("vApp").classList.remove("hidden");
+  const {data:l}=await db.from("lgas").select("*").order("code");
+  const mine=["facility","officer"].includes(ME.role)?(l||[]).filter(x=>x.code===ME.lga):(l||[]);
+  $("lga").innerHTML=mine.map(x=>`<option value="${x.code}">${esc(x.name)}</option>`).join("");$("lga").disabled=mine.length<2;
+  if(ME.role==="facility"&&ME.facility){$("fac").value=ME.facility;$("fac").readOnly=true;}
+  const d=new Date();d.setMonth(d.getMonth()-1);$("mon").value=d.toISOString().slice(0,7);
+  loadList();
+}
+
+// ================= step 1 =================
+function details(){
+  const fac=$("fac").value.trim(),mon=$("mon").value;
+  if(!fac||!mon){$("s1Msg").innerHTML='<span class="err">Enter the facility and the month first.</span>';return null;}
+  return {lga:$("lga").value,facility:fac,period:mon+"-01",template:$("tpl").value,synthetic:$("synth").checked,ai:{},conf:{},paper:{},final:{},first:[],final_flags:[],started:Date.now()};
+}
+$("takePhoto").onclick=()=>{if(details())$("photo").click();};
+$("manual").onclick=()=>{const f=details();if(!f)return;FORM={...f,mode:"manual",model:null};allItems().forEach(k=>{FORM.ai[k]=null;FORM.paper[k]=null;});$("ph").classList.add("hidden");showStage("confirm");};
+$("photo").onchange=async()=>{
+  const file=$("photo").files[0];if(!file)return;const f=details();if(!f)return;
+  FORM={...f,mode:"photo"};$("s1Msg").innerHTML='<span class="hint">Preparing the photo…</span>';
+  try{
+    const {b64,url}=await shrink(file,1800);
+    $("ph").src=url;$("ph").classList.remove("hidden");
+    $("s1Msg").innerHTML='<span class="hint">Reading the form… (about 10 to 20 seconds)</span>';
+    $("takePhoto").disabled=$("manual").disabled=true;
+    const {data,error}=await db.functions.invoke("snapcheck-read",{body:{image:b64,media_type:"image/jpeg",items:aiItems()}});
+    $("takePhoto").disabled=$("manual").disabled=false;$("photo").value="";
+    if(error||!data||data.error){let m=data&&data.error;if(!m&&error){try{m=(await error.context.json()).error;}catch(e){m=error.message;}}
+      $("s1Msg").innerHTML='<span class="err">Reading failed: '+esc(m||"unknown error")+'</span> You can try again, or type the numbers instead.';return;}
+    FORM.model=data.model;
+    allItems().forEach(k=>{const it=data.items&&data.items[k];const v=it&&it.v!==null&&it.v!==undefined&&it.v!==""&&!isNaN(Number(it.v))?Number(it.v):null;FORM.ai[k]=v;FORM.conf[k]=it?(it.c==="high"&&v!==null?"high":"low"):"low";FORM.paper[k]=v;});
+    FORM.note=data.notes||"";$("s1Msg").textContent="";
+    showStage("confirm");
+  }catch(e){$("takePhoto").disabled=$("manual").disabled=false;$("s1Msg").innerHTML='<span class="err">'+esc(e.message)+'</span>';}
+};
+function shrink(file,max){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
+  img.onload=()=>{let w=img.width,h=img.height;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
+    const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);
+    const d=c.toDataURL("image/jpeg",0.85);res({b64:d.split(",")[1],url});};
+  img.onerror=()=>rej(new Error("Could not open the photo."));img.src=url;});}
+
+// ================= steps 2 and 3 =================
+function setSteps(n){document.querySelectorAll(".steps span").forEach(s=>s.classList.toggle("on",+s.dataset.s===n));}
+function showStage(st){
+  STAGE=st;$("s1").classList.add("hidden");$("s4").classList.add("hidden");$("s2").classList.remove("hidden");
+  if(st==="confirm"){setSteps(2);$("s2Title").textContent=FORM.mode==="photo"?"Step 2: confirm the reading":"Step 2: type the numbers from the form";
+    $("s2Hint").innerHTML=FORM.mode==="photo"?"Compare each box with the <b>paper form</b>. Correct any number that was read wrongly so the boxes match exactly what is written, even if the form itself has a mistake. Yellow boxes are readings the AI was unsure about.":"Type each number exactly as written on the paper form, even if you think it is wrong.";
+    $("aiNote").textContent=FORM.note?"AI note: "+FORM.note:"";$("flags").innerHTML="";
+    drawGrid(FORM.paper,{});
+    $("s2Btns").innerHTML='<button id="toCheck">The boxes match the paper: check the form</button><button class="sec" id="cancel">Cancel</button>';
+    $("toCheck").onclick=()=>{readGrid(FORM.paper);FORM.final={...FORM.paper};FORM.first=T.rules({...FORM.paper});showStage("fix");};
+  }else{setSteps(3);$("s2Title").textContent="Step 3: fix the problems";
+    $("s2Hint").innerHTML="Check each problem against the <b>registers</b>, correct the paper form, then change the box here. Blue outline = changed. When done, click Check again, then Save.";
+    $("aiNote").textContent="";
+    const fl=T.rules({...FORM.final});const bad={};fl.forEach(x=>x.items.forEach(i=>bad[i]=x.severity));
+    drawGrid(FORM.final,bad,FORM.paper);
+    $("flags").innerHTML=fl.length?`<p class="hint"><b>${fl.length} problem(s)</b> found${FORM.first.length&&fl.length<FORM.first.length?` (down from ${FORM.first.length})`:""}:</p>`+fl.map(x=>`<div class="flag ${x.severity==="warn"?"warn":""}">${x.severity==="warn"?"Check: ":"Error: "}${esc(x.message)}</div>`).join(""):
+      `<div class="ok">No problems found${FORM.first.length?` (${FORM.first.length} found at first check were fixed or confirmed)`:""}.</div>`;
+    FORM.final_flags=fl;
+    const errs=fl.filter(x=>x.severity==="error").length;
+    $("s2Btns").innerHTML='<button class="sec" id="recheck">Check again</button><button id="save">Save checked form</button><button class="sec" id="back">Back to step 2</button>'+
+      `<div style="width:100%"><label for="mins">Minutes spent checking this form (optional)</label><input id="mins" type="number" min="1" max="300" style="max-width:140px"></div>`;
+    $("recheck").onclick=()=>{readGrid(FORM.final);showStage("fix");};
+    $("back").onclick=()=>showStage("confirm");
+    $("save").onclick=async()=>{readGrid(FORM.final);const fl2=T.rules({...FORM.final});FORM.final_flags=fl2;
+      if(fl2.some(x=>x.severity==="error")&&!confirm("Some errors are still on the form. Save anyway? (Only save if you have checked them against the registers.)"))return;
+      await save();};
+  }
+  const c=$("cancel");if(c)c.onclick=reset;
+}
+function drawGrid(vals,bad,orig){
+  const inp=k=>{const cls=[];if(STAGE==="confirm"&&FORM.mode==="photo"&&FORM.conf[k]==="low")cls.push("low");if(bad[k]==="error")cls.push("bad");if(orig&&orig[k]!==vals[k])cls.push("chg");
+    return `<input inputmode="numeric" data-k="${k}" class="${cls.join(" ")}" value="${vals[k]===null||vals[k]===undefined?"":vals[k]}" aria-label="${esc(label(k))}">`;};
+  $("grid").innerHTML=`<table class="g"><tr><th>Section A</th>${T.tableA.cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>
+    ${T.tableA.rows.map(([r,l])=>`<tr><td><b>${r}</b> ${esc(l)}</td>${T.tableA.cols.map(([c])=>`<td style="width:22%">${inp(r+c)}</td>`).join("")}</tr>`).join("")}</table>
+    <div style="height:10px"></div>
+    <table class="g"><tr><th>Section B</th><th>Number</th></tr>${T.listB.map(([k,l])=>`<tr><td><b>${k}</b> ${esc(l)}</td><td style="width:26%">${inp(k)}</td></tr>`).join("")}</table>`;
+}
+function readGrid(target){document.querySelectorAll("#grid input").forEach(i=>{const t=i.value.replace(/[^0-9]/g,"");target[i.dataset.k]=t===""?null:Number(t);});}
+async function save(){
+  $("save").disabled=true;
+  const payload={lga:FORM.lga,facility:FORM.facility,period:FORM.period,template:FORM.template,mode:FORM.mode,model:FORM.model,synthetic:FORM.synthetic,
+    minutes:$("mins")&&$("mins").value?$("mins").value:"",
+    values:allItems().map(k=>({item:k,ai:FORM.mode==="photo"?FORM.ai[k]:null,conf:FORM.mode==="photo"?FORM.conf[k]:null,paper:FORM.paper[k],final:FORM.final[k]})),
+    first:FORM.first.map(x=>({rule:x.rule,severity:x.severity,message:x.message})),final:FORM.final_flags.map(x=>({rule:x.rule,severity:x.severity,message:x.message}))};
+  const {error}=await db.rpc("snap_save",{p_form:payload});
+  if(error){$("s2Msg").innerHTML='<span class="err">'+esc(error.message)+'</span>';$("save").disabled=false;return;}
+  const n=allItems().length;const read=FORM.mode==="photo"?allItems().filter(k=>FORM.ai[k]!==null).length:0;
+  const misread=FORM.mode==="photo"?allItems().filter(k=>FORM.ai[k]!==FORM.paper[k]).length:0;
+  const corr=allItems().filter(k=>FORM.paper[k]!==FORM.final[k]).length;
+  $("s2").classList.add("hidden");$("s4").classList.remove("hidden");setSteps(4);
+  $("sum").innerHTML=`<p><b>${esc(FORM.facility)}</b>, ${esc(FORM.period.slice(0,7))}</p><ul>
+    ${FORM.mode==="photo"?`<li>AI reading: <b>${n-misread} of ${n}</b> boxes read correctly (${Math.round(100*(n-misread)/n)}%); ${misread} corrected by you.</li>`:"<li>Numbers typed by hand.</li>"}
+    <li>Problems found on the form: <b>${FORM.first.length}</b>; still open after correction: <b>${FORM.final_flags.length}</b>.</li>
+    <li>Figures corrected from the registers: <b>${corr}</b>.</li></ul><p class="hint">Use the corrected figures for DHIS2 entry.</p>`;
+  loadList();
+}
+function reset(){FORM=null;$("s2").classList.add("hidden");$("s4").classList.add("hidden");$("s1").classList.remove("hidden");setSteps(1);$("s1Msg").textContent="";}
+$("again").onclick=reset;
+async function loadList(){
+  const {data,error}=await db.from("snap_forms").select("*").order("created_at",{ascending:false}).limit(30);
+  if(error){$("list").innerHTML='<span class="err">'+esc(error.message)+'</span>';return;}
+  if(!data.length){$("list").textContent="No forms checked yet.";return;}
+  const ph=data.filter(f=>f.entry_mode==="photo");const tot=ph.reduce((a,f)=>a+f.n_items,0),mis=ph.reduce((a,f)=>a+f.n_misread,0);
+  $("list").innerHTML=(ph.length?`<p>AI reading accuracy so far: <b>${tot?Math.round(100*(tot-mis)/tot):0}%</b> of ${tot} boxes on ${ph.length} photographed form(s).</p>`:"")+
+   `<table class="g"><tr><th>Checked</th><th>Facility</th><th>Month</th><th>How</th><th>Misread</th><th>Problems first → last</th><th>Corrected</th></tr>${data.map(f=>`<tr><td>${new Date(f.created_at).toLocaleDateString()}</td><td>${esc(f.facility_name)}${f.synthetic?" (test)":""}</td><td>${esc(String(f.period).slice(0,7))}</td><td>${f.entry_mode}</td><td>${f.entry_mode==="photo"?f.n_misread+" of "+f.n_items:"–"}</td><td>${f.n_flags_first} → ${f.n_flags_final}</td><td>${f.n_corrected}</td></tr>`).join("")}</table>`;
+}
+start();
+if(navigator.serviceWorker&&navigator.serviceWorker.register)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
